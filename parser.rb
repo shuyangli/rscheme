@@ -1,5 +1,3 @@
-#!usr/bin/env ruby
-
 module RScheme
 
   class LexerParser
@@ -17,26 +15,23 @@ module RScheme
     def process_line(line)
       @current_string << line
 
-      # Check if parentheses are balanced
+      # Split token_strs on " to prepare for further splits
       token_strs = @current_string.gsub("(", " ( ")
                                   .gsub(")", " ) ")
-                                  .split
-      lparen_count = token_strs.inject(0) do |acc, item|
-        if item == "("
-          acc + 1
-        else
-          acc
-        end
-      end
-      rparen_count = token_strs.inject(0) do |acc, item|
-        if item == ")"
-          acc + 1
-        else
-          acc
-        end
-      end
+                                  .split(/\"/).collect { |x| x.strip }
 
-      return :expr_not_terminated if lparen_count > rparen_count
+      # Split on spaces, preserve quotes strings
+      token_strs = (1..token_strs.size).zip(token_strs).collect { |i, x|
+        if (i & 1).zero?
+          %("#{x}")       # All odd items are quoted, and we add the quotes back
+        else
+          x.split         # We split on every even item
+        end
+      }.flatten           # Flatten back to a flat array
+
+      puts token_strs.inspect
+
+      # Lex tokens
       return _lex(token_strs)
     rescue RSchemeLexingError => ex
       warn ex.message
@@ -97,24 +92,28 @@ module RScheme
           current_list << :GE
 
         # Literal
-        when /[0-9]+/             # Integer
+        when /[0-9]+/                         # Integer
           current_list << [:INTEGER_TYPE, token.to_i]
-        when /[0-9]*.[0-9]+/      # Float
+        when /[0-9]*.[0-9]+/                  # Float
           current_list << [:REAL_TYPE, token.to_float]
-        when /#t/                 # Boolean
+        when /#t/                             # Boolean
           current_list << [:BOOLEAN_TYPE, true]
         when /#f/
           current_list << [:BOOLEAN_TYPE, false]
-        when %r(".+")
-          current_list << [:STRING_TYPE, token]
+        when %r("([^"]*)")   # String, using named capture group to extract value
+          current_list << [:STRING_TYPE, $1]
 
         # Identifier
-        when %r([A-Za-z_][A-Za-z0-9\.+-?!]*)
+        when %r(^[A-Za-z_][A-Za-z0-9\.+-?!]*)
           current_list << [:IDENT_TYPE, token.downcase]
+
+        # Error
         else
           raise RSchemeLexingError, "Syntax error: unrecognized token #{token}"
         end
       end
+
+      return :expr_not_terminated unless list_stack.empty?
 
       @current_string = ""
       current_list
