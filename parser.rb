@@ -1,12 +1,13 @@
 module RScheme
 
-  class LexerParser
+  class RSchemeError < StandardError; end
 
-    class RSchemeLexingError < StandardError
-    end
+  class Parser
 
-    class RSchemeParsingError < StandardError
-    end
+    # Used when we encounter a syntax error
+    class RSchemeLexingError < RSchemeError; end
+
+    class RSchemeParsingError < RSchemeError; end
 
     def initialize
       @current_string = ""
@@ -29,18 +30,12 @@ module RScheme
         end
       }.flatten           # Flatten back to a flat array
 
-      puts token_strs.inspect
-
       # Lex tokens
       return _lex(token_strs)
     rescue RSchemeLexingError => ex
       warn ex.message
       @current_string = ""
-    end
-
-    # DEBUG
-    def _readline(line)
-      @current_string << line
+      return nil
     end
 
     def _lex(token_strs)
@@ -54,58 +49,60 @@ module RScheme
           current_list = []
         when ")"                    # Right parenthesis
           raise RSchemeLexingError, "Syntax error: unmatched )" if list_stack.empty?
-          list_stack.last << [:LIST_TYPE, current_list]
+          list_stack.last << [:LIST_TYPE, *current_list]
           current_list = list_stack.pop
 
         # Reserved words section
         when "quote"
-          current_list << :QUOTE
+          current_list << [:KEYWORD, :QUOTE]
         when "define"
-          current_list << :DEFINE
+          current_list << [:KEYWORD, :DEFINE]
         when "set!"
-          current_list << :ASSIGN
+          current_list << [:KEYWORD, :ASSIGN]
         when "lambda"
-          current_list << :LAMBDA
+          current_list << [:KEYWORD, :LAMBDA]
         when "if"
-          current_list << :IF
+          current_list << [:KEYWORD, :IF]
         when "let"
-          current_list << :LET
+          current_list << [:KEYWORD, :LET]
         when "letrec"
-          current_list << :LETREC
+          current_list << [:KEYWORD, :LETREC]
+
+        # Operators
         when "+"
-          current_list << :PLUS
+          current_list << [:OPERATOR, :PLUS]
         when "-"
-          current_list << :MINUS
+          current_list << [:OPERATOR, :MINUS]
         when "*"
-          current_list << :MULT
+          current_list << [:OPERATOR, :MULT]
         when "/"
-          current_list << :DIV
+          current_list << [:OPERATOR, :DIV]
         when "="
-          current_list << :EQUAL
+          current_list << [:OPERATOR, :EQUAL]
         when "<"
-          current_list << :LT
+          current_list << [:OPERATOR, :LT]
         when "<="
-          current_list << :LE
+          current_list << [:OPERATOR, :LE]
         when ">"
-          current_list << :GT
+          current_list << [:OPERATOR, :GT]
         when ">="
-          current_list << :GE
+          current_list << [:OPERATOR, :GE]
 
         # Literal
-        when /[0-9]+/                         # Integer
+        when /^[0-9]+/                         # Integer
           current_list << [:INTEGER_TYPE, token.to_i]
-        when /[0-9]*.[0-9]+/                  # Float
+        when /^[0-9]*.[0-9]+/                  # Float
           current_list << [:REAL_TYPE, token.to_float]
-        when /#t/                             # Boolean
+        when /^#t/                             # Boolean
           current_list << [:BOOLEAN_TYPE, true]
-        when /#f/
+        when /^#f/
           current_list << [:BOOLEAN_TYPE, false]
-        when %r("([^"]*)")   # String, using named capture group to extract value
+        when %r(^"([^"]*)")   # String, using named capture group to extract value
           current_list << [:STRING_TYPE, $1]
 
         # Identifier
         when %r(^[A-Za-z_][A-Za-z0-9\.+-?!]*)
-          current_list << [:IDENT_TYPE, token.downcase]
+          current_list << [:IDENT, token.downcase]
 
         # Error
         else
