@@ -19,7 +19,11 @@ loop do
     print ">>>#{level} " + "\t"
 
     line = $stdin.gets
-    exit 0 if line.nil?
+    if line.nil?
+      puts ""
+      exit 0
+    end
+
     line.strip!
 
     all_lines << line
