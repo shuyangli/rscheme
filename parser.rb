@@ -13,13 +13,14 @@ module RScheme
       @current_string = ""
     end
 
-    def process_str(str)
-      process_result = process_line(str)
+    def parse_str(str)
+      parse_result = parse_line(str)
       @current_string = ""
-      process_result
+      raise RSchemeParsingError, "Unbalanced )" if parse_result == :expr_not_terminated
+      parse_result
     end
 
-    def process_line(line)
+    def parse_line(line)
       @current_string << line
 
       # Split token_strs on " to prepare for further splits
