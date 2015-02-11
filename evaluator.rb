@@ -95,6 +95,19 @@ module RScheme
             end
             body = xs[2]
             return evaluate_in_env(let_env, body)
+          when :CAR
+            list = evaluate_in_env(env, xs[1])
+            raise RSchemeRuntimeError, "CAR applied to non-list #{xs[1]}" if list[0] != :LIST_TYPE
+            list[1]
+          when :CDR
+            list = evaluate_in_env(env, xs[1])
+            raise RSchemeRuntimeError, "CAR applied to non-list #{xs[1]}" if list[0] != :LIST_TYPE
+            [:LIST_TYPE].concat(list[2..list.length])
+          when :CONS
+            value = evaluate_in_env(env, xs[1])
+            list = evaluate_in_env(env, xs[2])
+            raise RSchemeRuntimeError, "CONS applied to non-list #{xs[2]}" if list[0] != :LIST_TYPE
+            [:LIST_TYPE, value].concat(list[1..list.length])
           else
             raise RSchemeRuntimeError, "Unrecognized keyword #{keyword_item}"
           end

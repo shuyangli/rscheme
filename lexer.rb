@@ -55,6 +55,12 @@ module RScheme
           current_list << [:KEYWORD, :LETSEQ]
         when "letrec"
           current_list << [:KEYWORD, :LETREC]
+        when "car"
+          current_list << [:KEYWORD, :CAR]
+        when "cdr"
+          current_list << [:KEYWORD, :CDR]
+        when "cons"
+          current_list << [:KEYWORD, :CONS]
 
         # Operators
         when "+"
