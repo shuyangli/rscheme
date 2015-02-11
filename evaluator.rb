@@ -4,6 +4,8 @@ module RScheme
 
   class Evaluator
 
+    attr_accessor :global_env, :parser
+
     class RSchemeRuntimeError < RSchemeError; end
 
     # Used when an identifier is not defined in the current environment
@@ -14,8 +16,13 @@ module RScheme
       @global_env = {}            # Global environment storing bindings
     end
 
-    def evaluate_string(str)
-      token_tree = @parser.process_line(str)
+    def evaluate_str(str)
+      token_tree = @parser.parse_str(str)
+      evaluate_in_env(@global_env, token_tree[0])
+    end
+
+    def evaluate_line(str)
+      token_tree = @parser.parse_line(str)
       return if token_tree == :expr_not_terminated
       evaluate_in_env(@global_env, token_tree[0])
     end
@@ -72,10 +79,10 @@ module RScheme
             let_env = env.clone                           # clone environment
             _, *binding_list = xs[1]                      # extract bindings
             binding_list.each do |binding|
-              env.bind(let_env, binding[1][1], evaluate_in_env(env, binding[2]))
+              env_bind(let_env, binding[1][1], evaluate_in_env(env, binding[2]))
             end
             body = xs[2]
-            evaluate_in_env(let_env, body)                # evaluate body in new env
+            return evaluate_in_env(let_env, body)         # evaluate body in new env
           when :LETSEQ
             let_env = env.clone                           # clone environment
             _, *binding_list = xs[1]                      # extract bindings
@@ -83,7 +90,7 @@ module RScheme
               env.bind(let_env, binding[1][1], evaluate_in_env(let_env, binding[2]))
             end
             body = xs[2]
-            evaluate_in_env(let_env, body)                # evaluate body in new env
+            return evaluate_in_env(let_env, body)         # evaluate body in new env
           when :LETREC
             let_env = env.clone
             _, *binding_list = xs[1]
@@ -94,7 +101,7 @@ module RScheme
               env.bind(let_env, binding[1][1], evaluate_in_env(let_env, binding[2]))
             end
             body = xs[2]
-            evaluate_in_env(let_env, body)
+            return evaluate_in_env(let_env, body)
           else
             raise RSchemeRuntimeError "Unrecognized keyword #{keyword_item}"
           end
@@ -128,7 +135,11 @@ module RScheme
           case op
           when :PLUS
             _, *args = xs
-            types, values = args.transpose
+
+            # Evaluate arguments
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+
+            types, values = args_evaluated.transpose
             types_legal = types.inject(true) do |acc, item|
               if !acc
                 false
@@ -145,11 +156,15 @@ module RScheme
           when :MINUS
             _, arg1, *args = xs
 
+            # Evaluate arguments
+            arg1 = evaluate_in_env(env, arg1)
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+
             # Handle one-arg case
             raise RSchemeRuntimeError, "- operator applied to non-number #{arg1}" unless arg1[0] == :INTEGER_TYPE or arg1[0] == :REAL_TYPE
-            return [arg1[0], -arg1[1]] if args.empty?
+            return [arg1[0], -arg1[1]] if args_evaluated.empty?
 
-            types, values = args.transpose
+            types, values = args_evaluated.transpose
             types_legal = types.inject(true) do |acc, item|
               if !acc
                 false
@@ -165,7 +180,11 @@ module RScheme
             return [:REAL_TYPE, value_sum]
           when :MULT
             _, *args = xs
-            types, values = args.transpose
+
+            # Evaluate arguments
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+
+            types, values = args_evaluated.transpose
             types_legal = types.inject(true) do |acc, item|
               if !acc
                 false
@@ -182,12 +201,16 @@ module RScheme
           when :DIV
             _, arg1, *args = xs
 
+            # Evaluate arguments
+            arg1 = evaluate_in_env(env, arg1)
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+
             # Handle one-arg case
             raise RSchemeRuntimeError, "/ operator applied to non-number #{arg1}" unless arg1[0] == :INTEGER_TYPE or arg1[0] == :REAL_TYPE
-            raise RSchemeRuntimeError, "Division by zero" if arg1[1] == 0 and args.empty?
-            return [:REAL_TYPE, 1 / arg1[1].to_f] if args.empty?
+            raise RSchemeRuntimeError, "Division by zero" if arg1[1] == 0 and args_evaluated.empty?
+            return [:REAL_TYPE, 1 / arg1[1].to_f] if args_evaluated.empty?
 
-            types, values = args.transpose
+            types, values = args_evaluated.transpose
             types_legal = types.inject(true) do |acc, item|
               if !acc
                 false
@@ -198,13 +221,86 @@ module RScheme
 
             raise RSchemeRuntimeError, "- operator applied to non-numbers: #{arg1}, #{values}" unless types_legal
             values.unshift arg1[1]
-            values_res = values.map(&:to_f).inject(&:/)
+            value_res = values.map(&:to_f).inject(&:/)
             return [:REAL_TYPE, value_res]
           when :EQUAL
+            _, *args = xs
+
+            # Evaluate arguments
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+            type, value = args_evaluated[0]
+
+            args_evaluated[1..args_evaluated.length].each do |item|
+              item_type, item_value = item
+              raise RSchemeRuntimeError "Wrong type: = expected #{type}, received #{item_type}" unless item_type == type or [item_type, type] == [:INTEGER_TYPE, :REAL_TYPE] or [item_type, type] == [:REAL_TYPE, :INTEGER_TYPE]
+              return [:BOOLEAN_TYPE, false] if item_value != value
+              type, value = item_type, item_value
+            end
+            return [:BOOLEAN_TYPE, true]
           when :LT
+            _, *args = xs
+
+            # Evaluate arguments
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+            type, value = args_evaluated[0]
+
+            raise RSchemeRuntimeError "Wrong type: < expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
+
+            args_evaluated[1..args_evaluated.length].each do |item|
+              item_type, item_value = item
+              raise RSchemeRuntimeError "Wrong type: < expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
+              return [:BOOLEAN_TYPE, false] unless value < item_value
+              type, value = item_type, item_value
+            end
+            return [:BOOLEAN_TYPE, true]
           when :LE
+            _, *args = xs
+
+            # Evaluate arguments
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+            type, value = args_evaluated[0]
+
+            raise RSchemeRuntimeError "Wrong type: <= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
+
+            args_evaluated[1..args_evaluated.length].each do |item|
+              item_type, item_value = item
+              raise RSchemeRuntimeError "Wrong type: <= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
+              return [:BOOLEAN_TYPE, false] unless value <= item_value
+              type, value = item_type, item_value
+            end
+            return [:BOOLEAN_TYPE, true]
           when :GT
+            _, *args = xs
+
+            # Evaluate arguments
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+            type, value = args_evaluated[0]
+
+            raise RSchemeRuntimeError "Wrong type: > expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
+
+            args_evaluated[1..args_evaluated.length].each do |item|
+              item_type, item_value = item
+              raise RSchemeRuntimeError "Wrong type: > expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
+              return [:BOOLEAN_TYPE, false] unless value > item_value
+              type, value = item_type, item_value
+            end
+            return [:BOOLEAN_TYPE, true]
           when :GE
+            _, *args = xs
+
+            # Evaluate arguments
+            args_evaluated = args.map { |item| evaluate_in_env(env, item) }
+            type, value = args_evaluated[0]
+
+            raise RSchemeRuntimeError "Wrong type: >= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
+
+            args_evaluated[1..args_evaluated.length].each do |item|
+              item_type, item_value = item
+              raise RSchemeRuntimeError "Wrong type: >= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
+              return [:BOOLEAN_TYPE, false] unless value >= item_value
+              type, value = item_type, item_value
+            end
+            return [:BOOLEAN_TYPE, true]
           end
         end
       else
