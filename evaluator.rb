@@ -123,13 +123,14 @@ module RScheme
 
           # Bind the formals to the actuals
           raise RSchemeRuntimeError, "#{identifier} called with wrong number of arguments: expected #{clos_formal_list.length}, received #{actual_list.length}" if clos_formal_list.length != actual_list.length
+
           zipped_formals = clos_formal_list.zip(actual_list)
           zipped_formals.each do |formal, actual|
-            env_bind(clos_env, formal, actual)
+            env_bind(clos_env, formal[1], actual)   # formal[1]: actual identifier
           end
 
           # Evaluate closure body with the closure environment
-          evaluate_in_env(env, clos_body)
+          evaluate_in_env(clos_env, clos_body)
         when :OPERATOR
           op = xs[0][1]
           case op
@@ -302,6 +303,8 @@ module RScheme
             end
             return [:BOOLEAN_TYPE, true]
           end
+        when :LIST_TYPE
+          # TODO: Implement currying ((func 1) 2) type of function
         end
       else
         raise RSchemeRuntimeError, "Unrecognized token type #{token_tree[0]}"
