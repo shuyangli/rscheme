@@ -1,3 +1,5 @@
+require './error.rb'
+
 module RScheme
 
   class Evaluator
@@ -67,6 +69,10 @@ module RScheme
             body = xs[2]
             return evaluate_in_env(let_env, body)         # evaluate body in new env
           when :LETSEQ
+            # [:KEYWORD, :LETSEQ],
+            #   [:LIST_TYPE,
+            #     [:LIST_TYPE, [:IDENT, name], [value]], ...],
+            #   [body]
             let_env = env.clone                           # clone environment
             _, *binding_list = xs[1]                      # extract bindings
             binding_list.each do |binding|
@@ -75,6 +81,10 @@ module RScheme
             body = xs[2]
             return evaluate_in_env(let_env, body)         # evaluate body in new env
           when :LETREC
+            # [:KEYWORD, :LETREQ],
+            #   [:LIST_TYPE,
+            #     [:LIST_TYPE, [:IDENT, name], [value]], ...],
+            #   [body]
             let_env = env.clone
             _, *binding_list = xs[1]
             binding_list.each do |binding|                # first round extends the environment
@@ -86,7 +96,7 @@ module RScheme
             body = xs[2]
             return evaluate_in_env(let_env, body)
           else
-            raise RSchemeRuntimeError "Unrecognized keyword #{keyword_item}"
+            raise RSchemeRuntimeError, "Unrecognized keyword #{keyword_item}"
           end
         when :IDENT                     # Identifier, hopefully a closure
           identifier = xs[0][1]
@@ -199,7 +209,7 @@ module RScheme
 
             args_evaluated[1..args_evaluated.length].each do |item|
               item_type, item_value = item
-              raise RSchemeRuntimeError "Wrong type: = expected #{type}, received #{item_type}" unless item_type == type or [item_type, type] == [:INTEGER_TYPE, :REAL_TYPE] or [item_type, type] == [:REAL_TYPE, :INTEGER_TYPE]
+              raise RSchemeRuntimeError, "Wrong type: = expected #{type}, received #{item_type}" unless item_type == type or [item_type, type] == [:INTEGER_TYPE, :REAL_TYPE] or [item_type, type] == [:REAL_TYPE, :INTEGER_TYPE]
               return [:BOOLEAN_TYPE, false] if item_value != value
               type, value = item_type, item_value
             end
@@ -211,11 +221,11 @@ module RScheme
             args_evaluated = args.map { |item| evaluate_in_env(env, item) }
             type, value = args_evaluated[0]
 
-            raise RSchemeRuntimeError "Wrong type: < expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
+            raise RSchemeRuntimeError, "Wrong type: < expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
 
             args_evaluated[1..args_evaluated.length].each do |item|
               item_type, item_value = item
-              raise RSchemeRuntimeError "Wrong type: < expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
+              raise RSchemeRuntimeError, "Wrong type: < expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
               return [:BOOLEAN_TYPE, false] unless value < item_value
               type, value = item_type, item_value
             end
@@ -227,11 +237,11 @@ module RScheme
             args_evaluated = args.map { |item| evaluate_in_env(env, item) }
             type, value = args_evaluated[0]
 
-            raise RSchemeRuntimeError "Wrong type: <= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
+            raise RSchemeRuntimeError, "Wrong type: <= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
 
             args_evaluated[1..args_evaluated.length].each do |item|
               item_type, item_value = item
-              raise RSchemeRuntimeError "Wrong type: <= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
+              raise RSchemeRuntimeError, "Wrong type: <= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
               return [:BOOLEAN_TYPE, false] unless value <= item_value
               type, value = item_type, item_value
             end
@@ -243,11 +253,11 @@ module RScheme
             args_evaluated = args.map { |item| evaluate_in_env(env, item) }
             type, value = args_evaluated[0]
 
-            raise RSchemeRuntimeError "Wrong type: > expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
+            raise RSchemeRuntimeError, "Wrong type: > expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
 
             args_evaluated[1..args_evaluated.length].each do |item|
               item_type, item_value = item
-              raise RSchemeRuntimeError "Wrong type: > expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
+              raise RSchemeRuntimeError, "Wrong type: > expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
               return [:BOOLEAN_TYPE, false] unless value > item_value
               type, value = item_type, item_value
             end
@@ -259,11 +269,11 @@ module RScheme
             args_evaluated = args.map { |item| evaluate_in_env(env, item) }
             type, value = args_evaluated[0]
 
-            raise RSchemeRuntimeError "Wrong type: >= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
+            raise RSchemeRuntimeError, "Wrong type: >= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless type == :INTEGER_TYPE or type == :REAL_TYPE
 
             args_evaluated[1..args_evaluated.length].each do |item|
               item_type, item_value = item
-              raise RSchemeRuntimeError "Wrong type: >= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
+              raise RSchemeRuntimeError, "Wrong type: >= expected #{:INTEGER_TYPE} or #{:REAL_TYPE}, received #{type}" unless item_type == :INTEGER_TYPE or type == :REAL_TYPE
               return [:BOOLEAN_TYPE, false] unless value >= item_value
               type, value = item_type, item_value
             end
