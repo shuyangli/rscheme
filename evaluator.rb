@@ -9,7 +9,11 @@ module RScheme
     end
 
     def evaluate(token_tree)
-      evaluate_in_env(@global_env, token_tree)
+      res = []
+      token_tree.each do |expr|
+        res = evaluate_in_env(@global_env, expr)
+      end
+      res
     end
 
     def evaluate_in_env(env, token_tree)

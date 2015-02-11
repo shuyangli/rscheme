@@ -26,7 +26,7 @@ module RScheme
 
       raise RSchemeExprNotTerminatedError, list_stack.length unless list_stack.empty?
 
-      current_list[0]
+      current_list
     end
 
   end
