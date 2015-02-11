@@ -24,16 +24,15 @@ module RScheme
       # Handwritten grammar!
       case token_tree[0]
       when :INTEGER_TYPE, :REAL_TYPE, :BOOLEAN_TYPE, :STRING_TYPE # Value literal
-        return token_tree[0][1]         # Return literal value
+        return token_tree               # Return literal value
       when :IDENT                       # Identifier
-        identifier = token_tree[0][1]
+        identifier = token_tree[1]
         return env_lookup(env, identifier)     # Return value bound to identifier
       when :LIST_TYPE                   # List
         _, *xs = token_tree
         case xs[0][0]
         when :KEYWORD
           keyword_item = xs[0][1]
-          warn keyword_item.inspect
           case keyword_item             # Dispatch on each keyword
           when :QUOTE
             return xs[1]                # If it's quote, we return the literal value
