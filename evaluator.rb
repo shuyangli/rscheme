@@ -1,40 +1,23 @@
-load "./parser.rb"
-
 module RScheme
 
   class Evaluator
 
-    attr_accessor :global_env, :parser
-
-    class RSchemeRuntimeError < RSchemeError; end
-
-    # Used when an identifier is not defined in the current environment
-    class RSchemeNameError < RSchemeError; end
-
     def initialize
-      @parser = Parser.new   # Parser
-      @global_env = {}            # Global environment storing bindings
+      @global_env = {}                  # Global environment storing bindings
     end
 
-    def evaluate_str(str)
-      token_tree = @parser.parse_str(str)
-      evaluate_in_env(@global_env, token_tree[0])
-    end
-
-    def evaluate_line(str)
-      token_tree = @parser.parse_line(str)
-      return if token_tree == :expr_not_terminated
-      evaluate_in_env(@global_env, token_tree[0])
+    def evaluate(token_tree)
+      evaluate_in_env(@global_env, token_tree)
     end
 
     def evaluate_in_env(env, token_tree)
       # Handwritten grammar!
       case token_tree[0]
       when :INTEGER_TYPE, :REAL_TYPE, :BOOLEAN_TYPE, :STRING_TYPE # Value literal
-        return token_tree               # Return literal value
+        token_tree                      # Return literal value
       when :IDENT                       # Identifier
         identifier = token_tree[1]
-        return env_lookup(env, identifier)     # Return value bound to identifier
+        env_lookup(env, identifier)     # Return value bound to identifier
       when :LIST_TYPE                   # List
         _, *xs = token_tree
         case xs[0][0]
@@ -42,14 +25,14 @@ module RScheme
           keyword_item = xs[0][1]
           case keyword_item             # Dispatch on each keyword
           when :QUOTE
-            return xs[1]                # If it's quote, we return the literal value
+            xs[1]                       # If it's quote, we return the literal value
           when :DEFINE, :ASSIGN         # They are basically the same
             # [[:KEYWORD, :DEFINE], [:IDENT, name], [expr]]
             identifier = xs[1][1]                         # identifier
             env_extend(env, identifier)                   # extend env first for recursion
             expr_value = evaluate_in_env(env, xs[2])      # evaluate expr
             env_bind(env, identifier, expr_value)         # bind
-            return nil
+            nil
           when :LAMBDA
             # [[:LIST_TYPE,
             #   [:KEYWORD, :LAMBDA],
@@ -107,30 +90,13 @@ module RScheme
           end
         when :IDENT                     # Identifier, hopefully a closure
           identifier = xs[0][1]
-          closure = env_lookup(env, identifier)
-          # [:CLOSURE, { :ENVIRONMENT  => env.clone,
-          #              :FORMAL_LIST  => formal_list,
-          #              :CLOSURE_BODY => closure_body }]
-          clos_env = closure[1][:ENVIRONMENT]
-          clos_formal_list = closure[1][:FORMAL_LIST]
-          clos_body = closure[1][:CLOSURE_BODY]
-          raise RSchemeRuntimeError, "#{identifier} is not bound to a closure" unless closure[0] == :CLOSURE
-          # Bind the closure's identifier to its body
-          env_bind(clos_env, identifier, closure)
-
-          # Evaluate the actual list
-          actual_list = xs[1..xs.length].map { |token| evaluate_in_env(env, token) }
-
-          # Bind the formals to the actuals
-          raise RSchemeRuntimeError, "#{identifier} called with wrong number of arguments: expected #{clos_formal_list.length}, received #{actual_list.length}" if clos_formal_list.length != actual_list.length
-
-          zipped_formals = clos_formal_list.zip(actual_list)
-          zipped_formals.each do |formal, actual|
-            env_bind(clos_env, formal[1], actual)   # formal[1]: actual identifier
-          end
-
-          # Evaluate closure body with the closure environment
-          evaluate_in_env(clos_env, clos_body)
+          closure = env_lookup(env, identifier)         # Look up the closure first
+          evaluated_token_tree = [:LIST_TYPE, closure].concat xs[1..token_tree.length]
+          evaluate_in_env(env, evaluated_token_tree)    # Then evaluate the whole tree
+        when :LIST_TYPE
+          evaluated_list = evaluate_in_env(env, xs[0])  # Evaluate the list first
+          evaluated_token_tree = [:LIST_TYPE, evaluated_list].concat xs[1..token_tree.length]
+          evaluate_in_env(env, evaluated_token_tree)    # Then evaluate the whole tree
         when :OPERATOR
           op = xs[0][1]
           case op
@@ -303,8 +269,31 @@ module RScheme
             end
             return [:BOOLEAN_TYPE, true]
           end
-        when :LIST_TYPE
-          # TODO: Implement currying ((func 1) 2) type of function
+        when :CLOSURE
+          closure = xs[0]
+          # [:CLOSURE, { :ENVIRONMENT  => env.clone,
+          #              :FORMAL_LIST  => formal_list,
+          #              :CLOSURE_BODY => closure_body }]
+          clos_env = closure[1][:ENVIRONMENT]
+          clos_formal_list = closure[1][:FORMAL_LIST]
+          clos_body = closure[1][:CLOSURE_BODY]
+          raise RSchemeRuntimeError, "Invalid closure: #{closure}" unless closure[0] == :CLOSURE
+
+          # Evaluate the actual list
+          actual_list = xs[1..xs.length].map { |token| evaluate_in_env(env, token) }
+
+          # Bind the formals to the actuals
+          raise RSchemeRuntimeError, "#{identifier} called with wrong number of arguments: expected #{clos_formal_list.length}, received #{actual_list.length}" if clos_formal_list.length != actual_list.length
+
+          zipped_formals = clos_formal_list.zip(actual_list)
+          zipped_formals.each do |formal, actual|
+            env_bind(clos_env, formal[1], actual)   # formal[1]: actual identifier
+          end
+
+          # Evaluate closure body with the closure environment
+          evaluate_in_env(clos_env, clos_body)
+        else
+          raise RSchemeRuntimeError, "Cannot apply #{token_tree[0][1]}"
         end
       else
         raise RSchemeRuntimeError, "Unrecognized token type #{token_tree[0]}"

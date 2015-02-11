@@ -1,11 +1,8 @@
+require './error.rb'
+
 module RScheme
 
-  class RSchemeError < StandardError; end
-
   class Parser
-
-    class RSchemeParsingError < RSchemeError; end
-    class RSchemeExprNotTerminatedError < RSchemeParsingError; end
 
     def parse(tokens)
       list_stack = []
@@ -13,7 +10,7 @@ module RScheme
 
       tokens.each do |token|
         case token[0]
-        when ":PAREN"               # Parenthesis
+        when :PAREN               # Parenthesis
           if token[1] == :LPAREN
             list_stack.push(current_list)
             current_list = []
@@ -29,7 +26,7 @@ module RScheme
 
       raise RSchemeExprNotTerminatedError, list_stack.length unless list_stack.empty?
 
-      current_list
+      current_list[0]
     end
 
   end

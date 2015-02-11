@@ -1,11 +1,8 @@
+require './error.rb'
+
 module RScheme
 
-  class RSchemeError < StandardError; end
-
   class Lexer
-
-    # Used when we encounter a lexing error
-    class RSchemeLexingError < RSchemeError; end
 
     def tokenize(str)
       # Split token_strs on " to prepare for further splits
