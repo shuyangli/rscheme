@@ -4,13 +4,19 @@ module RScheme
 
   class Parser
 
-    # Used when we encounter a syntax error
+    # Used when we encounter a lexing error
     class RSchemeLexingError < RSchemeError; end
 
     class RSchemeParsingError < RSchemeError; end
 
     def initialize
       @current_string = ""
+    end
+
+    def process_str(str)
+      process_result = process_line(str)
+      @current_string = ""
+      process_result
     end
 
     def process_line(line)
@@ -65,6 +71,8 @@ module RScheme
           current_list << [:KEYWORD, :IF]
         when "let"
           current_list << [:KEYWORD, :LET]
+        when "let*"
+          current_list << [:KEYWORD, :LETSEQ]
         when "letrec"
           current_list << [:KEYWORD, :LETREC]
 
