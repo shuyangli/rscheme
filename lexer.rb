@@ -81,12 +81,24 @@ module RScheme
           current_list << [:OPERATOR, :GT]
         when ">="
           current_list << [:OPERATOR, :GE]
+        when "and"
+          current_list << [:OPERATOR, :AND]
+        when "or"
+          current_list << [:OPERATOR, :OR]
+        when "not"
+          current_list << [:OPERATOR, :NOT]
+
+        # Built-in type checks
+        # when "null?"
+        #   current_list << [:OPERATOR, :NULL_Q]
+        # when "pair?"
+        #   current_list << [:OPERATOR, :PAIR_Q]
 
         # Literal
+        when /^[0-9]*\.[0-9]+/                 # Float
+          current_list << [:REAL_TYPE, token.to_f]
         when /^[0-9]+/                         # Integer
           current_list << [:INTEGER_TYPE, token.to_i]
-        when /^[0-9]*.[0-9]+/                  # Float
-          current_list << [:REAL_TYPE, token.to_float]
         when /^#t/                             # Boolean
           current_list << [:BOOLEAN_TYPE, true]
         when /^#f/
