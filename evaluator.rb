@@ -8,7 +8,7 @@ module RScheme
       @global_env = {}                  # Global environment storing bindings
     end
 
-    def evaluate(token_tree)
+    def eval(token_tree)
       res = []
       token_tree.each do |expr|
         res = evaluate_in_env(@global_env, expr)
@@ -295,6 +295,31 @@ module RScheme
               type, value = item_type, item_value
             end
             return [:BOOLEAN_TYPE, true]
+          when :AND
+            _, *args = xs
+            # Evaluate arguments in order, short-circuiting
+            args[1..args.length].each do |arg|
+              type, value = evaluate_in_env(env, arg)
+              raise RSchemeRuntimeError, "Wrong type: = expected BOOLEAN_TYPE, received #{type}" unless type == :BOOLEAN_TYPE
+              return [:BOOLEAN_TYPE, false] unless value
+            end
+            return [:BOOLEAN_TYPE, true]
+          when :OR
+            _, *args = xs
+            # Evaluate arguments in order, short-circuiting
+            args[1..args.length].each do |arg|
+              type, value = evaluate_in_env(env, arg)
+              raise RSchemeRuntimeError, "Wrong type: = expected BOOLEAN_TYPE, received #{type}" unless type == :BOOLEAN_TYPE
+              return [:BOOLEAN_TYPE, true] if value
+            end
+            return [:BOOLEAN_TYPE, false]
+          when :NOT
+            _, *args = xs
+            raise RSchemeRuntimeError, "Wrong number of arguments" if args.length != 1
+            # Evaluate arguments in order, short-circuiting
+            type, value = evaluate_in_env(env, args[0])
+            raise RSchemeRuntimeError, "Wrong type: = expected BOOLEAN_TYPE, received #{type}" unless type == :BOOLEAN_TYPE
+            return [:BOOLEAN_TYPE, !value]
           end
         when :CLOSURE
           closure = xs[0]

@@ -29,7 +29,7 @@ loop do
     all_lines << line
     tokens = lexer.lex(all_lines)
     syntax_tree = parser.parse(tokens)
-    eval_result = evaluator.evaluate(syntax_tree)
+    eval_result = evaluator.eval(syntax_tree)
     puts eval_result.inspect
 
     all_lines = ""
